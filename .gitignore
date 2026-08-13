@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 虚拟环境（本地运行用，不进仓库）
+.venv/
+
+# 运行时数据（用户记忆，绝不上传）
+~/.agents/memory/
+
+# 临时
+*.tmp
+.DS_Store
