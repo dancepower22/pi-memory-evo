@@ -303,7 +303,7 @@ def init(args=None):
 
 def main():
     # —— 记忆 v2 转发：分层卡片工具 cards.py（memory.py 本体逻辑不动）
-    if len(sys.argv) > 1 and sys.argv[1] in ("card", "build", "doctor"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("card", "proj", "build", "doctor"):
         import cards
         return cards.main(sys.argv[2:] if sys.argv[1] == "card" else sys.argv[1:])
 

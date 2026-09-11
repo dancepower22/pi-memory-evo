@@ -71,18 +71,20 @@ $P sync                        # 刷新总览 MEMORY.md
 ## 🧱 记忆机制 v2（分层卡片，2026-09-11 起）
 
 除旧四层外，另有一套**分层卡片库**（`~/.agents/memory/cards.json`），面向"下次读回来不走样"设计：
-L1 工作法（按触发场景）｜ L2 项目状态 ｜ L3 环境事实 ｜ L5 调优日志（老闫的纠正与边界）。
+L1 工作法（按触发场景）｜ L2 项目状态（开场只列名字，详情在 D 盘项目总表）｜ L3 环境事实 ｜ L5 调优日志（老闫的纠正与边界）。
 
 ```bash
 P=~/.agents/skills/pi-memory-evo/memory.py
 $P card add --layer L1 --scene writing --text "要这么做的一句话" [--note 例/边界] [--why 仅在防读偏时写] [--tag a,b] [--src 来源]
 $P card add --layer L2 --project <项目> --status active --text "现状或下一步"
 $P card search <词> / card list --layer L1 / card show <id>
-$P build [--scene writing] [--budget 3500]   # 生成 BOOT.md + playbook/ projects/ 正文镜像
-$P doctor                                    # 体检：超长/缺场景/指代词/重复/无标签/预算
+$P proj set <名> --title 中文名 --oneliner "一句话" --alias "别名1,别名2" --path <路径>
+$P proj find <关键词>      # 项目名记不全时搜别名
+$P build [--scene writing] [--budget 3500]   # 生成 BOOT.md + 项目总表 + playbook/ projects/ 正文镜像
+$P doctor                                    # 体检：超长/缺场景/指代词/重复/疑似重复/无标签/预算
 ```
 
-**开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens），正文按需 `card search` 或读 `playbook/<场景>.md`。
+**开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens）：**项目只列名字**，详情在 `/mnt/d/Pi/项目总表.md`（老闫也能查）；工作法正文按需 `card search` 或读 `playbook/<场景>.md`。
 写入判据：**零上下文读回来必须不走样**——写成"要这么做"的指令式，禁指代词，一条一件事（≤200 字）。
 
 > 设计文档：`/mnt/d/Pi/projects/agent-memory/DESIGN.md`（长线项目，P1 已完，P2 迁移存量中）

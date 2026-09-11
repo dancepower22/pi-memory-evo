@@ -42,6 +42,8 @@ LAYERS = ("L1", "L2", "L3", "L5")
 SCENES = ("writing", "design", "coding", "ops", "asset", "collab", "meta", "other")
 STATUSES = ("active", "paused", "done")
 DEFAULT_BUDGET = 3500
+# 项目总表：老闫要求落到 D 盘（他常开着 /mnt/d/Pi），便于他和阿衍两头都能查
+PROJECT_TABLE = "/mnt/d/Pi/项目总表.md"
 
 # 场景 → 中文名（生成正文文件与 BOOT 标题用）
 SCENE_CN = {
@@ -71,9 +73,11 @@ def est_tokens(s):
 
 def load():
     if not os.path.exists(CARDS_FILE):
-        return {"version": 2, "cards": []}
+        return {"version": 2, "cards": [], "projects": {}}
     with open(CARDS_FILE, encoding="utf-8") as f:
-        return json.load(f)
+        d = json.load(f)
+    d.setdefault("projects", {})
+    return d
 
 
 def save(data):
@@ -270,6 +274,53 @@ def cmd_show(a):
     return 0
 
 
+# ---------------------------------------------------------------- 项目
+
+def cmd_proj(a):
+    data = load()
+    P = data.setdefault("projects", {})
+    if a.action == "list":
+        if not P:
+            print("（还没登记项目）")
+            return 0
+        for k, v in P.items():
+            al = ("／" + "、".join(v.get("aliases", []))) if v.get("aliases") else ""
+            print(f"· {k}{al} [{v.get('status','active')}] {v.get('title','')} {v.get('oneliner','')}")
+        return 0
+    if a.action == "find":
+        q = (a.name or "").lower()
+        hits = []
+        for k, v in P.items():
+            blob = " ".join([k, v.get("title", ""), v.get("oneliner", ""),
+                             " ".join(v.get("aliases", [])), v.get("path", "")]).lower()
+            if q in blob:
+                hits.append((k, v))
+        for k, v in hits:
+            print(f"· {k} [{v.get('status','active')}] {v.get('title','')}｜{v.get('oneliner','')}"
+                  + (f"\n    路径：{v.get('path')}" if v.get("path") else ""))
+        print(f"\n共 {len(hits)} 个匹配" + ("" if hits else " ——换短一点的关键词，或直接看 " + PROJECT_TABLE))
+        return 0
+    if a.action == "show":
+        v = P.get(a.name)
+        print(json.dumps(v, ensure_ascii=False, indent=2) if v else f"❌ 未登记 {a.name}")
+        return 0
+    if a.action == "rm":
+        P.pop(a.name, None)
+        save(data)
+        print(f"🗑️ 已移除项目 {a.name}（卡片未动）")
+        return 0
+    v = P.setdefault(a.name, {"aliases": [], "oneliner": "", "path": "", "status": "active", "title": ""})
+    for k in ("title", "oneliner", "path", "status"):
+        if getattr(a, k, None):
+            v[k] = getattr(a, k)
+    if a.alias:
+        v["aliases"] = [x.strip() for x in a.alias.split(",") if x.strip()]
+    v["updated"] = now_iso()
+    save(data)
+    print(f"✅ 项目已登记：{a.name} [{v['status']}] {v.get('title','')} {v.get('oneliner','')}")
+    return 0
+
+
 # ---------------------------------------------------------------- 生成
 
 def _card_block(c, indent=""):
@@ -302,7 +353,9 @@ def _pick(cards, budget, render=None, prefer_scene=None):
     render = render or _card_block
 
     def key(c):
-        return (0 if (prefer_scene and c.get("scene") == prefer_scene) else 1,
+        sc = c.get("scene", "")
+        return (0 if (prefer_scene and sc == prefer_scene) else 1,
+                SCENES.index(sc) if sc in SCENES else 99,   # 同场景相邻，便于扫读
                 _rev(c.get("updated", "")))
 
     chosen, used, dropped = [], 0, 0
@@ -364,21 +417,32 @@ def cmd_build(a):
 
     # —— BOOT.md：开场装载包（按预算取）
     b = a.budget
-    alloc = {"L2": int(b * 0.30), "L5": int(b * 0.30), "L1": int(b * 0.40)}
-    l2, d2 = _pick([c for c in cards if c["layer"] == "L2"], alloc["L2"], _render_l2, a.scene)
+    alloc = {"L1": int(b * 0.55), "L5": int(b * 0.40)}
     l5, d5 = _pick([c for c in cards if c["layer"] == "L5"], alloc["L5"], _render_l5, a.scene)
     l1, d1 = _pick([c for c in cards if c["layer"] == "L1"], alloc["L1"], _render_l1, a.scene)
 
-    out = [f"## 📁 项目状态（L2，{len(l2)} 条" + (f"，截断 {d2}" if d2 else "") + "）", ""]
-    byproj = {}
-    for c in l2:
-        byproj.setdefault(c["project"], []).append(c)
-    for pj, cs in byproj.items():
-        st = cs[0].get("status") or "active"
-        out.append(f"**{pj}** · {st} · 更新 {cs[0].get('updated', '')[:10]}")
-        for c in cs:
-            out.append(_render_l2(c))
-        out.append("")
+    # —— L2：开场**只列项目名**（老闫 09-11：不需要每次记住每个项目的现状/决策/卡点/下一步）
+    projs = data.get("projects", {})
+    byp = {}
+    for c in cards:
+        if c["layer"] == "L2" and c["project"]:
+            byp.setdefault(c["project"], []).append(c)
+
+    def pst(p):
+        return (projs.get(p) or {}).get("status") or (byp[p][0].get("status") or "active")
+
+    def pname(p):
+        return (projs.get(p) or {}).get("title") or p
+
+    act = sorted(p for p in byp if pst(p) == "active")
+    rest = sorted(p for p in byp if pst(p) != "active")
+    out = [f"## 📁 项目（进行中 {len(act)}）", ""]
+    out.append("**进行中**：" + (" ・ ".join(pname(p) for p in act) or "（无）"))
+    if rest:
+        out.append("**已完/搁置**（不进开场）：" + " ・ ".join(pname(p) for p in rest))
+    out.append("")
+    out.append(f"> 要看某项目的现状/决策/下一步 → 读 `{PROJECT_TABLE}`，或 `memory.py proj find <关键词>`。")
+    out.append("")
     out.append(f"## 🧭 工作法索引（L1，{len(l1)} 条" + (f"，截断 {d1}" if d1 else "") + "）")
     out.append("")
     for c in l1:
@@ -405,9 +469,53 @@ def cmd_build(a):
     ]
     open(BOOT_FILE, "w", encoding="utf-8").write("\n".join(head) + body)
     print(f"✅ BOOT.md 生成：{tk} tokens / 预算 {b} " + ("✅" if tk <= b else "⚠️ 超限"))
-    print(f"   L2 {len(l2)} 条(弃{d2}) ｜ L5 {len(l5)} 条(弃{d5}) ｜ L1 {len(l1)} 条(弃{d1})")
+    print(f"   L5 {len(l5)} 条(弃{d5}) ｜ L1 {len(l1)} 条(弃{d1}) ｜ 项目 {len(act)} 个")
     print(f"   正文镜像 {len(written)} 个文件")
+    _write_project_table(data, cards, projs, byp)
     return 0
+
+
+def _write_project_table(data, cards, projs, byp):
+    """生成 D 盘项目总表：项目名 / 别名 / 一句话 / 路径 / 状态 + 各自的 L2 卡片要点
+    用途（老闫 09-11）：他和我两头都能查；项目名对不上时也能搜到。"""
+    names = sorted(set(byp.keys()) | set(projs.keys()))
+    if not names:
+        return
+    L = ["# 项目总表", "",
+         f"> 生成于 {now_iso()} ｜ 数据源 `~/.agents/memory/cards.json`——**勿手改**，改卡片后 `memory.py build` 重生成。",
+         "> 用法：Ctrl+F 搜项目名 / 别名 / 关键词。老闫问『某项目怎么样了』→ 阿衍先 `memory.py proj find <关键词>` 再读本节。",
+         ""]
+    def status_of(n):
+        return (projs.get(n) or {}).get("status") or (byp.get(n, [{}])[0].get("status") or "active")
+    for st, title in (("active", "🟢 进行中"), ("paused", "⏸ 搁置"), ("done", "✅ 已完成")):
+        group = [n for n in names if status_of(n) == st]
+        if not group:
+            continue
+        L += [f"## {title}（{len(group)}）", ""]
+        for n in group:
+            v = projs.get(n) or {}
+            head = v.get("title") or n
+            L.append(f"### {head}" + (f" · `{n}`" if head != n else ""))
+            meta = []
+            if v.get("aliases"):
+                meta.append("别名：" + "、".join(v["aliases"]))
+            if v.get("path"):
+                meta.append(f"路径：`{v['path']}`")
+            if v.get("updated"):
+                meta.append("更新：" + v["updated"][:10])
+            if meta:
+                L.append("- " + " ｜ ".join(meta))
+            if v.get("oneliner"):
+                L.append(f"- 一句话：{v['oneliner']}")
+            cs = byp.get(n, [])
+            if cs:
+                L.append("- 要点：")
+                for c in cs:
+                    L.append(f"  - {c['text']}" + (f"（{c['note']}）" if c.get("note") else ""))
+            L.append("")
+    path = PROJECT_TABLE if os.path.isdir(os.path.dirname(PROJECT_TABLE)) else os.path.join(MEM_DIR, "项目总表.md")
+    open(path, "w", encoding="utf-8").write("\n".join(L) + "\n")
+    print(f"   项目总表：{path}（{len(names)} 个项目）")
 
 
 def _bigrams(s):
@@ -461,11 +569,12 @@ def cmd_doctor(a):
 
 
 def cmd_stats(a):
-    data = load()
     from collections import Counter
+    data = load()
     print(f"卡片库: {CARDS_FILE}")
     print("  按层:", dict(Counter(c["layer"] for c in data["cards"])))
     print("  按场景:", dict(Counter(c["scene"] for c in data["cards"] if c["scene"])))
+    print(f"  项目: {len(data.get('projects', {}))} 个")
     if os.path.exists(BOOT_FILE):
         print(f"  BOOT.md 估算: {est_tokens(open(BOOT_FILE, encoding='utf-8').read())} tokens")
     return 0
@@ -495,6 +604,8 @@ def main(argv=None):
     s = sub.add_parser("rm"); s.add_argument("id"); s.set_defaults(fn=cmd_rm)
     s = sub.add_parser("use"); s.add_argument("id"); s.set_defaults(fn=cmd_use)
     s = sub.add_parser("build"); s.add_argument("--scene", default=None); s.add_argument("--budget", type=int, default=DEFAULT_BUDGET); s.set_defaults(fn=cmd_build)
+    s = sub.add_parser("proj"); s.add_argument("action", choices=("set", "list", "show", "find", "rm")); s.add_argument("name", nargs="?", default="")
+    s.add_argument("--title", default=""); s.add_argument("--oneliner", default=""); s.add_argument("--alias", default=""); s.add_argument("--path", default=""); s.add_argument("--status", choices=STATUSES, default=""); s.set_defaults(fn=cmd_proj)
     s = sub.add_parser("doctor"); s.set_defaults(fn=cmd_doctor)
     s = sub.add_parser("stats"); s.set_defaults(fn=cmd_stats)
 
