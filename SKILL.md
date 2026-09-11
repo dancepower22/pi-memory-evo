@@ -82,12 +82,12 @@ $P card add --layer L2 --project <项目> --status active --text "现状或下�
 $P card search <词> / card list --layer L1 / card show <id>
 $P proj set <名> --title 中文名 --oneliner "一句话" --alias "别名1,别名2" --path <路径>
 $P proj find <关键词>      # 项目名记不全时搜别名
-$P build [--scene writing] [--budget 3500]   # 生成 BOOT.md + 项目总表 + playbook/ projects/ 正文镜像
+$P build [--scene writing] [--budget 3500]   # 生成 BOOT.md + 项目总表(md+HTML) + playbook/ projects/ 正文镜像
 $P doctor                                    # 体检：超长/缺场景/指代词/重复/疑似重复/无标签/预算
 $P icebox                                    # 列出冷藏层（老闫说“先放放”的事）
 ```
 
-**开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens）：**项目只列名字**，详情在 `/mnt/d/Pi/项目总表.md`（老闫也能查）；工作法正文按需 `card search` 或读 `playbook/<场景>.md`。
+**开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens）：**项目只列名字**，详情在 `/mnt/d/Pi/项目总表.html`（带实时搜索，老闫看这个）与 `项目总表.md`；工作法正文按需 `card search` 或读 `playbook/<场景>.md`。
 写入判据：**零上下文读回来必须不走样**——写成"要这么做"的指令式，禁指代词，一条一件事（≤200 字）。
 
 > 设计文档：`/mnt/d/Pi/projects/agent-memory/DESIGN.md`（长线项目，P1 已完，P2 迁移存量中）

@@ -28,6 +28,7 @@
 """
 import argparse
 import difflib
+import html
 import json
 import os
 import re
@@ -46,6 +47,7 @@ STATUSES = ("active", "paused", "done")
 DEFAULT_BUDGET = 3500
 # 项目总表：老闫要求落到 D 盘（他常开着 /mnt/d/Pi），便于他和阿衍两头都能查
 PROJECT_TABLE = "/mnt/d/Pi/项目总表.md"
+PROJECT_TABLE_HTML = "/mnt/d/Pi/项目总表.html"
 
 # 场景 → 中文名（生成正文文件与 BOOT 标题用）
 SCENE_CN = {
@@ -539,6 +541,141 @@ def _write_project_table(data, cards, projs, byp):
     path = PROJECT_TABLE if os.path.isdir(os.path.dirname(PROJECT_TABLE)) else os.path.join(MEM_DIR, "项目总表.md")
     open(path, "w", encoding="utf-8").write("\n".join(L) + "\n")
     print(f"   项目总表：{path}（{len(names)} 个项目）")
+    _write_project_table_html(projs, byp, cards)
+
+
+_CSS = """
+*{box-sizing:border-box}
+:root{--paper:#F3EDE2;--paper2:#FCFAF4;--ink:#221F1A;--ink2:#6B6459;--rule:#DFD7C8;--cz:#B03A2E;--jade:#2F6B5B}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:15px/1.7 -apple-system,"Segoe UI",system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+  background-image:radial-gradient(120% 90% at 8% -10%,rgba(176,58,46,.05),transparent 60%),repeating-linear-gradient(90deg,rgba(0,0,0,.016) 0 1px,transparent 1px 3px)}
+.wrap{max-width:1140px;margin:0 auto;padding:54px 28px 96px}
+header{border-bottom:1px solid var(--rule);padding-bottom:20px;margin-bottom:8px}
+h1::after{content:'';display:block;width:68px;height:3px;background:var(--cz);margin-top:13px}
+h1{font-family:"Songti SC","Source Han Serif SC",SimSun,serif;font-size:clamp(26px,4vw,38px);
+  letter-spacing:.06em;margin:0 0 6px}
+.meta{color:var(--ink2);font-size:13.5px;letter-spacing:.02em;line-height:1.9}
+.meta b{color:var(--cz);font-weight:600}
+.toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
+#q{flex:1 1 280px;min-width:220px;padding:11px 14px;border:1px solid var(--rule);background:var(--paper2);
+  font:inherit;color:inherit;border-radius:2px;outline:none}
+#q:focus{border-color:var(--cz);box-shadow:0 0 0 3px rgba(176,58,46,.08)}
+.hint{color:var(--ink2);font-size:13px}
+section{margin-top:48px}
+.sthead{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--rule);padding-bottom:6px}
+.sthead h2{font-family:"Songti SC",SimSun,serif;font-size:19px;letter-spacing:.08em;margin:0;font-weight:600}
+.sthead h2::before{content:'';display:inline-block;width:9px;height:9px;background:var(--cz);margin-right:10px;vertical-align:2px}
+.cnt{color:var(--cz);font-size:13px;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px;margin-top:20px;align-items:start}
+.proj{background:var(--paper2);border:1px solid var(--rule);border-top:2px solid var(--ink);padding:20px 22px 18px}
+.proj.done{border-top-color:var(--jade);opacity:.9}
+.proj.paused{border-top-style:dashed;border-top-color:var(--ink2)}
+.proj h3{font-family:"Songti SC",SimSun,serif;font-size:17.5px;margin:0 0 4px;letter-spacing:.03em}
+.proj .code{font-size:12.6px;color:var(--ink2);font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em}
+.aliases{margin:8px 0 10px;display:flex;flex-wrap:wrap;gap:6px}
+.aliases span{font-size:12.8px;color:var(--ink2);border-bottom:1px dotted rgba(176,58,46,.5);padding-bottom:1px;line-height:1.6}
+.one{margin:0 0 11px;font-size:14.5px;line-height:1.75}
+.rows{font-size:13.6px;color:var(--ink2);line-height:2.05;border-top:1px dotted var(--rule);padding-top:9px;margin-top:2px}
+.rows code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:rgba(0,0,0,.035);padding:1px 5px}
+ul.pts{margin:11px 0 0;padding-left:1.2em}
+ul.pts li{margin:6px 0;font-size:14px;line-height:1.8}
+ul.pts li::marker{color:var(--cz)}
+.ice{margin-top:34px;border:1px dashed var(--rule);padding:16px 18px;background:rgba(255,255,255,.35)}
+.ice h2{font-family:"Songti SC",SimSun,serif;font-size:17px;margin:0 0 4px;letter-spacing:.06em}
+.ice p{margin:2px 0 10px;color:var(--ink2);font-size:12.5px}
+.ice li{margin:5px 0;font-size:13.5px}
+.ice .why{color:var(--ink2);font-size:12.5px}
+footer{margin-top:46px;color:var(--ink2);font-size:12px;border-top:1px solid var(--rule);padding-top:12px}
+mark{background:rgba(176,58,46,.16);color:inherit}
+@media print{body{background:#fff}#q{display:none}.proj{break-inside:avoid}}
+"""
+
+_JS = """
+const q=document.getElementById('q');
+const projs=[...document.querySelectorAll('.proj')];
+q.addEventListener('input',()=>{
+  const v=q.value.trim().toLowerCase();
+  projs.forEach(el=>{el.style.display=(!v||el.dataset.search.includes(v))?'':'none';});
+  document.querySelectorAll('section[data-sec]').forEach(s=>{
+    const n=[...s.querySelectorAll('.proj')].filter(e=>e.style.display!=='none').length;
+    s.querySelector('.cnt').textContent=n;
+    s.style.display=n?'':'none';
+  });
+});
+"""
+
+
+def _write_project_table_html(projs, byp, cards):
+    """生成 HTML 版项目总表（老闫 2026-09-11：md 看着眼累）——纸墨朱砂配色 + 实时搜索"""
+    names = sorted(set(byp.keys()) | set(projs.keys()))
+    if not names:
+        return
+    E = html.escape
+
+    def st(n):
+        return (projs.get(n) or {}).get("status") or (byp.get(n, [{}])[0].get("status") or "active")
+
+    def blob(n):
+        v = projs.get(n) or {}
+        parts = [n, v.get("title", ""), v.get("oneliner", ""), v.get("path", ""),
+                 " ".join(v.get("aliases", []))]
+        parts += [c["text"] + c.get("note", "") for c in byp.get(n, [])]
+        return E(" ".join(parts).lower()).replace('"', "&quot;")
+
+    P = []
+    for status, title in (("active", "🟢 进行中"), ("paused", "⏸ 搁置"), ("done", "✅ 已完成")):
+        group = [n for n in names if st(n) == status]
+        if not group:
+            continue
+        P.append(f'<section data-sec><div class="sthead"><h2>{title}</h2>'
+                 f'<span class="cnt">{len(group)}</span></div><div class="grid">')
+        for n in group:
+            v = projs.get(n) or {}
+            head = E(v.get("title") or n)
+            P.append(f'<article class="proj {status}" data-search="{blob(n)}">')
+            P.append(f'<h3>{head}</h3><div class="code">{E(n)}</div>')
+            if v.get("aliases"):
+                P.append('<div class="aliases">' + "".join(f"<span>{E(x)}</span>" for x in v["aliases"]) + "</div>")
+            if v.get("oneliner"):
+                P.append(f'<p class="one">{E(v["oneliner"])}</p>')
+            rows = []
+            if v.get("path"):
+                rows.append("路径 <code>" + E(v["path"]) + "</code>")
+            if v.get("updated"):
+                rows.append("更新 " + E(v["updated"][:10]))
+            if rows:
+                P.append('<div class="rows">' + "　·　".join(rows) + "</div>")
+            cs = byp.get(n, [])
+            if cs:
+                P.append('<ul class="pts">' + "".join(
+                    f"<li>{E(c['text'])}" + (f"<br><span class=\"code\">{E(c['note'])}</span>" if c.get("note") else "")
+                    + "</li>" for c in cs) + "</ul>")
+            P.append("</article>")
+        P.append("</div></section>")
+
+    ice = [c for c in cards if c["layer"] == "L6"]
+    if ice:
+        P.append('<div class="ice"><h2>🧊 冷藏层（先放放的）</h2>'
+                 '<p>铁律：先查上面的项目总表 → 再查 L1–L5 → 都找不到才翻这里。</p><ul>')
+        for c in ice:
+            P.append(f"<li>{E(c['text'])}<br><span class='why'>放放的理由：{E(c.get('note',''))}</span></li>")
+        P.append("</ul></div>")
+
+    n_active = len([n for n in names if st(n) == "active"])
+    doc = ("<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
+           "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+           "<title>项目总表 · 阿衍</title>\n<style>" + _CSS + "</style>\n</head>\n<body>\n<div class=\"wrap\">\n"
+           "<header><h1>项目总表</h1><div class=\"meta\">共 <b>" + str(len(names)) + "</b> 个项目　·　进行中 <b>"
+           + str(n_active) + "</b>　·　生成于 " + now_iso() + "　·　阿衍维护<code>memory.py build</code>自动生成，勿手改</div></header>\n"
+           "<div class=\"toolbar\"><input id=\"q\" type=\"search\" placeholder=\"搜项目名 / 别名 / 路径 / 要点…（如：协作、教师节、蓝图）\" autofocus>"
+           "<span class=\"hint\">不用 Ctrl+F，直接打字过滤</span></div>\n"
+           + "\n".join(P)
+           + "\n<footer>数据源 <code>~/.agents/memory/cards.json</code>　·　L2 项目卡 + 项目元信息　·　<a href='项目总表.md'>同目录还有 md 版</a></footer>\n"
+           "</div>\n<script>" + _JS + "</script>\n</body>\n</html>\n")
+    path = PROJECT_TABLE_HTML if os.path.isdir(os.path.dirname(PROJECT_TABLE_HTML)) else os.path.join(MEM_DIR, "项目总表.html")
+    open(path, "w", encoding="utf-8").write(doc)
+    print(f"   项目总表(HTML)：{path}")
 
 
 def _bigrams(s):
