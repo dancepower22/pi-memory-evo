@@ -38,7 +38,9 @@ MEM_DIR = os.path.expanduser("~/.agents/memory")
 CARDS_FILE = os.path.join(MEM_DIR, "cards.json")
 BOOT_FILE = os.path.join(MEM_DIR, "BOOT.md")
 
-LAYERS = ("L1", "L2", "L3", "L5")
+LAYERS = ("L1", "L2", "L3", "L5", "L6")
+# L6 = 冷藏层（icebox）：老闫当时说“先放放”的、姜花一现的临时起意。
+# 检索铁律（老闫 2026-09-11）：**先查项目总表 → L1-L5 → 都找不到才翻 L6**；L6 永不进开场。
 SCENES = ("writing", "design", "coding", "ops", "asset", "collab", "meta", "other")
 STATUSES = ("active", "paused", "done")
 DEFAULT_BUDGET = 3500
@@ -130,6 +132,9 @@ def cmd_add(a):
         return 1
     if a.layer in ("L1", "L5") and not a.scene:
         print("❌ L1/L5 必须带 --scene（触发场景）——这正是能被检索到的关键")
+        return 1
+    if a.layer == "L6" and not (a.note or a.why):
+        print("❌ L6（冷藏）必须写 --note：当时为什么放放（否则以后翻到也不知道该不该拾起）")
         return 1
     data = load()
     n = norm(a.text)
@@ -255,12 +260,29 @@ def cmd_search(a):
                          + " ".join(c.get("tags", [])) + c.get("scene", "") + c.get("project", ""))]
     if a.layer:
         hits = [c for c in hits if c["layer"] == a.layer]
+    # 冷藏层永远排最后（老闫 2026-09-11：先查项目总表 → L1-L5 → 都找不到才翻 L6）
+    hits.sort(key=lambda c: 1 if c["layer"] == "L6" else 0)
     if not hits:
         print("🔍 未找到。")
         return 0
     for c in hits:
-        print(_fmt(c, 90))
-    print(f"\n共 {len(hits)} 条匹配")
+        print(("🧊 " if c["layer"] == "L6" else "") + _fmt(c, 90))
+    print(f"\n共 {len(hits)} 条匹配" + ("（🧊 = 冷藏层，当年说先放放的）" if any(c["layer"] == "L6" for c in hits) else ""))
+    return 0
+
+
+def cmd_icebox(a):
+    """列出全部冷藏条目（L6）——只在项目总表与 L1-L5 都找不到时才翻这里"""
+    data = load()
+    cs = [c for c in data["cards"] if c["layer"] == "L6"]
+    if not cs:
+        print("🧊 冷藏层是空的（没有『先放放』的东西）")
+        return 0
+    for c in cs:
+        print(f"🧊 {c['id']} {c['text']}")
+        if c.get("note"):
+            print(f"    放放的理由：{c['note']}")
+    print(f"\n共 {len(cs)} 条冷藏。\n使用铁律：先查项目总表 → L1-L5 → 都找不到才翻这里。")
     return 0
 
 
@@ -405,7 +427,8 @@ def cmd_build(a):
         body += [_card_block(x) for x in cs]
         open(p, "w", encoding="utf-8").write("\n".join(body) + "\n")
         written.append(p)
-    for layer, fname, title in (("L3", "env.md", "环境事实"), ("L5", "rationale.md", "调优日志")):
+    for layer, fname, title in (("L3", "env.md", "环境事实"), ("L5", "rationale.md", "调优日志"),
+                                ("L6", "icebox.md", "冷藏库（先放放 / 姜花一现的临时起意）")):
         cs = [c for c in cards if c["layer"] == layer]
         if not cs:
             continue
@@ -600,6 +623,7 @@ def main(argv=None):
     s = sub.add_parser("edit"); s.add_argument("id"); s.add_argument("--text"); add_common(s); s.set_defaults(fn=cmd_edit)
     s = sub.add_parser("list"); s.add_argument("--layer"); s.add_argument("--scene"); s.add_argument("--project"); s.add_argument("--tag"); s.set_defaults(fn=cmd_list)
     s = sub.add_parser("search"); s.add_argument("query"); s.add_argument("--layer"); s.set_defaults(fn=cmd_search)
+    s = sub.add_parser("icebox"); s.set_defaults(fn=cmd_icebox)
     s = sub.add_parser("show"); s.add_argument("id"); s.set_defaults(fn=cmd_show)
     s = sub.add_parser("rm"); s.add_argument("id"); s.set_defaults(fn=cmd_rm)
     s = sub.add_parser("use"); s.add_argument("id"); s.set_defaults(fn=cmd_use)

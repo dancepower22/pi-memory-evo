@@ -20,6 +20,7 @@
   memory.py card list|search|show|edit|rm|use ...              # 卡片读写
   memory.py build [--scene writing] [--budget 3500]            # 生成 BOOT.md 与正文镜像
   memory.py doctor                                             # 体检
+  memory.py icebox                                             # 列出冷藏层（先放放的事）
   （旧四层 memory.json 保持不变；卡片存于 cards.json）
 """
 import argparse
@@ -303,7 +304,7 @@ def init(args=None):
 
 def main():
     # —— 记忆 v2 转发：分层卡片工具 cards.py（memory.py 本体逻辑不动）
-    if len(sys.argv) > 1 and sys.argv[1] in ("card", "proj", "build", "doctor"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("card", "proj", "build", "doctor", "icebox"):
         import cards
         return cards.main(sys.argv[2:] if sys.argv[1] == "card" else sys.argv[1:])
 

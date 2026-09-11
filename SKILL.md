@@ -71,7 +71,9 @@ $P sync                        # 刷新总览 MEMORY.md
 ## 🧱 记忆机制 v2（分层卡片，2026-09-11 起）
 
 除旧四层外，另有一套**分层卡片库**（`~/.agents/memory/cards.json`），面向"下次读回来不走样"设计：
-L1 工作法（按触发场景）｜ L2 项目状态（开场只列名字，详情在 D 盘项目总表）｜ L3 环境事实 ｜ L5 调优日志（老闫的纠正与边界）。
+L1 工作法（按触发场景）｜ L2 项目状态（开场只列名字，详情在 D 盘项目总表）｜ L3 环境事实 ｜ L5 调优日志（老闫的纠正与边界）｜ **L6 冷藏**（“先放放”的事，永不进开场）。
+
+**检索铁律**：先查项目总表 → 再查 L1–L5 → 都找不到才翻 L6（`memory.py icebox`）。
 
 ```bash
 P=~/.agents/skills/pi-memory-evo/memory.py
@@ -82,6 +84,7 @@ $P proj set <名> --title 中文名 --oneliner "一句话" --alias "别名1,别�
 $P proj find <关键词>      # 项目名记不全时搜别名
 $P build [--scene writing] [--budget 3500]   # 生成 BOOT.md + 项目总表 + playbook/ projects/ 正文镜像
 $P doctor                                    # 体检：超长/缺场景/指代词/重复/疑似重复/无标签/预算
+$P icebox                                    # 列出冷藏层（老闫说“先放放”的事）
 ```
 
 **开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens）：**项目只列名字**，详情在 `/mnt/d/Pi/项目总表.md`（老闫也能查）；工作法正文按需 `card search` 或读 `playbook/<场景>.md`。
