@@ -43,7 +43,8 @@ LAYERS = ("L1", "L2", "L3", "L5", "L6")
 # L6 = 冷藏层（icebox）：老闫当时说“先放放”的、姜花一现的临时起意。
 # 检索铁律（老闫 2026-09-11）：**先查项目总表 → L1-L5 → 都找不到才翻 L6**；L6 永不进开场。
 SCENES = ("writing", "design", "coding", "ops", "asset", "collab", "meta", "other")
-STATUSES = ("active", "paused", "done")
+STATUSES = ("active", "paused", "done", "ice")
+STATUS_CN = {"active": "🟢 进行中", "paused": "⏸ 搁置", "done": "✅ 已完成", "ice": "🧊 冷藏"}
 DEFAULT_BUDGET = 3500
 # 项目总表：老闫要求落到 D 盘（他常开着 /mnt/d/Pi），便于他和阿衍两头都能查
 PROJECT_TABLE = "/mnt/d/Pi/项目总表.md"
@@ -460,7 +461,7 @@ def cmd_build(a):
         return (projs.get(p) or {}).get("title") or p
 
     act = sorted(p for p in byp if pst(p) == "active")
-    rest = sorted(p for p in byp if pst(p) != "active")
+    rest = sorted(p for p in byp if pst(p) in ("paused", "done"))
     out = [f"## 📁 项目（进行中 {len(act)}）", ""]
     out.append("**进行中**：" + (" ・ ".join(pname(p) for p in act) or "（无）"))
     if rest:
@@ -512,7 +513,8 @@ def _write_project_table(data, cards, projs, byp):
          ""]
     def status_of(n):
         return (projs.get(n) or {}).get("status") or (byp.get(n, [{}])[0].get("status") or "active")
-    for st, title in (("active", "🟢 进行中"), ("paused", "⏸ 搁置"), ("done", "✅ 已完成")):
+    for st, title in (("active", "🟢 进行中"), ("paused", "⏸ 搁置"), ("done", "✅ 已完成"),
+                      ("ice", "🧊 冷藏（先放放）")):
         group = [n for n in names if status_of(n) == st]
         if not group:
             continue
@@ -582,6 +584,7 @@ ul.pts{margin:11px 0 0;padding-left:1.2em}
 ul.pts li{margin:6px 0;font-size:14px;line-height:1.8}
 ul.pts li::marker{color:var(--cz)}
 .ice{margin-top:34px;border:1px dashed var(--rule);padding:16px 18px;background:rgba(255,255,255,.35)}
+.ice .iceitem{margin:10px 0;padding:12px 14px}
 .ice h2{font-family:"Songti SC",SimSun,serif;font-size:17px;margin:0 0 4px;letter-spacing:.06em}
 .ice p{margin:2px 0 10px;color:var(--ink2);font-size:12.5px}
 .ice li{margin:5px 0;font-size:13.5px}
@@ -625,7 +628,7 @@ def _write_project_table_html(projs, byp, cards):
 
     P = []
     for status, title in (("active", "🟢 进行中"), ("paused", "⏸ 搁置"), ("done", "✅ 已完成")):
-        group = [n for n in names if st(n) == status]
+        group = [n for n in names if st(n) == status]   # ice 不在这里出（统一到下方冷藏区，避免重复）
         if not group:
             continue
         P.append(f'<section data-sec><div class="sthead"><h2>{title}</h2>'
@@ -655,19 +658,32 @@ def _write_project_table_html(projs, byp, cards):
         P.append("</div></section>")
 
     ice = [c for c in cards if c["layer"] == "L6"]
-    if ice:
+    ice_projs = [n for n in names if st(n) == "ice"]
+    if ice or ice_projs:
         P.append('<div class="ice"><h2>🧊 冷藏层（先放放的）</h2>'
-                 '<p>铁律：先查上面的项目总表 → 再查 L1–L5 → 都找不到才翻这里。</p><ul>')
-        for c in ice:
-            P.append(f"<li>{E(c['text'])}<br><span class='why'>放放的理由：{E(c.get('note',''))}</span></li>")
-        P.append("</ul></div>")
+                 '<p>铁律：先查上面的项目总表 → 再查 L1–L5 → 都找不到才翻这里。</p>')
+        for n in ice_projs:
+            v = projs.get(n) or {}
+            P.append(f'<div class="proj iceitem" data-search="{blob(n)}">'
+                     f'<h3>{E(v.get("title") or n)}</h3><div class="code">{E(n)}</div>'
+                     + (f'<p class="one">{E(v.get("oneliner",""))}</p>' if v.get("oneliner") else "")
+                     + (f'<div class="rows">路径 <code>{E(v.get("path",""))}</code></div>' if v.get("path") else "")
+                     + '</div>')
+        if ice:
+            P.append("<ul>")
+            for c in ice:
+                P.append(f"<li>{E(c['text'])}<br><span class='why'>放放的理由：{E(c.get('note',''))}</span></li>")
+            P.append("</ul>")
+        P.append("</div>")
 
     n_active = len([n for n in names if st(n) == "active"])
+    n_ice = len([n for n in names if st(n) == "ice"])
     doc = ("<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
            "<title>项目总表 · 阿衍</title>\n<style>" + _CSS + "</style>\n</head>\n<body>\n<div class=\"wrap\">\n"
            "<header><h1>项目总表</h1><div class=\"meta\">共 <b>" + str(len(names)) + "</b> 个项目　·　进行中 <b>"
-           + str(n_active) + "</b>　·　生成于 " + now_iso() + "　·　阿衍维护<code>memory.py build</code>自动生成，勿手改</div></header>\n"
+           + str(n_active) + "</b>　·　冷藏 <b>" + str(n_ice) + "</b>　·　生成于 " + now_iso()
+           + "　·　阿衍维护<code>memory.py build</code>自动生成，勿手改</div></header>\n"
            "<div class=\"toolbar\"><input id=\"q\" type=\"search\" placeholder=\"搜项目名 / 别名 / 路径 / 要点…（如：协作、教师节、蓝图）\" autofocus>"
            "<span class=\"hint\">不用 Ctrl+F，直接打字过滤</span></div>\n"
            + "\n".join(P)
