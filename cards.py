@@ -245,15 +245,30 @@ def _card_block(c, indent=""):
     return "\n".join(out)
 
 
-def _pick(cards, budget, prefer_scene=None):
+def _render_l1(c):
+    return f"- `[{c['scene']}]` {c['text'][:52]}" + ("…" if len(c["text"]) > 52 else "") + f"  → {c['id']}"
+
+
+def _render_l5(c):
+    return (f"- {c['text'][:70]}" + ("…" if len(c["text"]) > 70 else "")
+            + (f"  · 为什么：{c['why'][:40]}" if c.get("why") else ""))
+
+
+def _render_l2(c):
+    return f"  - {c['text']}" + (f"（{c['note']}）" if c.get("note") else "")
+
+
+def _pick(cards, budget, render=None, prefer_scene=None):
     """按预算取卡片：场景匹配优先，其次更新时间倒序；返回 (选中列表, 丢弃数)"""
+    render = render or _card_block
+
     def key(c):
         return (0 if (prefer_scene and c.get("scene") == prefer_scene) else 1,
                 _rev(c.get("updated", "")))
+
     chosen, used, dropped = [], 0, 0
     for c in sorted(cards, key=key):
-        line = _card_block(c)
-        cost = est_tokens(line) + 8
+        cost = est_tokens(render(c)) + 2
         if used + cost > budget:
             dropped += 1
             continue
@@ -311,9 +326,9 @@ def cmd_build(a):
     # —— BOOT.md：开场装载包（按预算取）
     b = a.budget
     alloc = {"L2": int(b * 0.30), "L5": int(b * 0.30), "L1": int(b * 0.40)}
-    l2, d2 = _pick([c for c in cards if c["layer"] == "L2"], alloc["L2"], a.scene)
-    l5, d5 = _pick([c for c in cards if c["layer"] == "L5"], alloc["L5"], a.scene)
-    l1, d1 = _pick([c for c in cards if c["layer"] == "L1"], alloc["L1"], a.scene)
+    l2, d2 = _pick([c for c in cards if c["layer"] == "L2"], alloc["L2"], _render_l2, a.scene)
+    l5, d5 = _pick([c for c in cards if c["layer"] == "L5"], alloc["L5"], _render_l5, a.scene)
+    l1, d1 = _pick([c for c in cards if c["layer"] == "L1"], alloc["L1"], _render_l1, a.scene)
 
     out = [f"## 📁 项目状态（L2，{len(l2)} 条" + (f"，截断 {d2}" if d2 else "") + "）", ""]
     byproj = {}
@@ -323,19 +338,17 @@ def cmd_build(a):
         st = cs[0].get("status") or "active"
         out.append(f"**{pj}** · {st} · 更新 {cs[0].get('updated', '')[:10]}")
         for c in cs:
-            out.append(f"  - {c['text']}" + (f"（{c['note']}）" if c.get("note") else ""))
+            out.append(_render_l2(c))
         out.append("")
     out.append(f"## 🧭 工作法索引（L1，{len(l1)} 条" + (f"，截断 {d1}" if d1 else "") + "）")
     out.append("")
     for c in l1:
-        out.append(f"- `[{c['scene']}]` {c['text'][:52]}" + ("…" if len(c["text"]) > 52 else "")
-                   + f"  → {c['id']}")
+        out.append(_render_l1(c))
     out.append("")
     out.append(f"## 🎯 最近调优（L5，{len(l5)} 条" + (f"，截断 {d5}" if d5 else "") + "）")
     out.append("")
     for c in l5:
-        out.append(f"- {c['text'][:70]}" + ("…" if len(c["text"]) > 70 else "")
-                   + (f"  · 为什么：{c['why'][:40]}" if c.get("why") else ""))
+        out.append(_render_l5(c))
     out.append("")
     out.append("## 🧵 未收尾事项")
     out.append("")
