@@ -334,8 +334,8 @@ def cmd_proj(a):
         save(data)
         print(f"🗑️ 已移除项目 {a.name}（卡片未动）")
         return 0
-    v = P.setdefault(a.name, {"aliases": [], "oneliner": "", "path": "", "status": "active", "title": ""})
-    for k in ("title", "oneliner", "path", "status"):
+    v = P.setdefault(a.name, {"aliases": [], "oneliner": "", "path": "", "status": "active", "title": "", "owner": ""})
+    for k in ("title", "oneliner", "path", "status", "owner"):
         if getattr(a, k, None):
             v[k] = getattr(a, k)
     if a.alias:
@@ -524,6 +524,8 @@ def _write_project_table(data, cards, projs, byp):
             head = v.get("title") or n
             L.append(f"### {head}" + (f" · `{n}`" if head != n else ""))
             meta = []
+            if v.get("owner"):
+                meta.append("归属：" + v["owner"])
             if v.get("aliases"):
                 meta.append("别名：" + "、".join(v["aliases"]))
             if v.get("path"):
@@ -643,6 +645,8 @@ def _write_project_table_html(projs, byp, cards):
             if v.get("oneliner"):
                 P.append(f'<p class="one">{E(v["oneliner"])}</p>')
             rows = []
+            if v.get("owner"):
+                rows.append("归属 " + E(v["owner"]))
             if v.get("path"):
                 rows.append("路径 <code>" + E(v["path"]) + "</code>")
             if v.get("updated"):
@@ -782,7 +786,7 @@ def main(argv=None):
     s = sub.add_parser("use"); s.add_argument("id"); s.set_defaults(fn=cmd_use)
     s = sub.add_parser("build"); s.add_argument("--scene", default=None); s.add_argument("--budget", type=int, default=DEFAULT_BUDGET); s.set_defaults(fn=cmd_build)
     s = sub.add_parser("proj"); s.add_argument("action", choices=("set", "list", "show", "find", "rm")); s.add_argument("name", nargs="?", default="")
-    s.add_argument("--title", default=""); s.add_argument("--oneliner", default=""); s.add_argument("--alias", default=""); s.add_argument("--path", default=""); s.add_argument("--status", choices=STATUSES, default=""); s.set_defaults(fn=cmd_proj)
+    s.add_argument("--title", default=""); s.add_argument("--oneliner", default=""); s.add_argument("--alias", default=""); s.add_argument("--path", default=""); s.add_argument("--status", choices=STATUSES, default=""); s.add_argument("--owner", default=""); s.set_defaults(fn=cmd_proj)
     s = sub.add_parser("doctor"); s.set_defaults(fn=cmd_doctor)
     s = sub.add_parser("stats"); s.set_defaults(fn=cmd_stats)
 
