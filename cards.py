@@ -27,6 +27,7 @@
   cards.py stats
 """
 import argparse
+import difflib
 import json
 import os
 import re
@@ -92,6 +93,31 @@ def norm(s):
     return "".join(ch.lower() for ch in s if not ch.isspace())
 
 
+def _sim(a, b):
+    """文本相似度（0~1）：difflib 序列比对，中文短句上比 n-gram 可靠"""
+    na, nb = norm(a), norm(b)
+    if not na or not nb:
+        return 0.0
+    return difflib.SequenceMatcher(None, na, nb).ratio()
+
+
+def _similar_existing(data, layer, scene, project, text, topn=3, floor=0.2):
+    """写入前提醒：同层（同场景/项目）里已有哪几条长得像——**写入时有上下文，此刻判断最准**"""
+    hits = []
+    for c in data["cards"]:
+        if c["layer"] != layer:
+            continue
+        if scene and c.get("scene") != scene:
+            continue
+        if project and c.get("project") != project:
+            continue
+        s = _sim(text, c["text"])
+        if s >= floor:
+            hits.append((s, c))
+    hits.sort(key=lambda x: -x[0])
+    return hits[:topn]
+
+
 # ---------------------------------------------------------------- 写
 
 def cmd_add(a):
@@ -107,6 +133,11 @@ def cmd_add(a):
         if norm(c["text"]) == n:
             print(f"⚠️ 内容完全相同，未添加（已有 {c['id']}）")
             return 1
+    near = _similar_existing(data, a.layer, a.scene, a.project, a.text)
+    if near:
+        print("👀 写入前提醒——同层已有相似卡片，先确认是不是同一件事（是就该改/并，不是就忽略）：")
+        for s, c in near:
+            print(f"   {s:.0%} {c['id']}: {c['text'][:56]}")
     rec = {
         "id": next_id(data), "layer": a.layer,
         "scene": a.scene if a.layer != "L2" else "",
@@ -379,9 +410,13 @@ def cmd_build(a):
     return 0
 
 
+def _bigrams(s):
+    return {s[i:i + 2] for i in range(len(s) - 1)}
+
+
 def cmd_doctor(a):
     data = load()
-    bad = {"超长": [], "缺场景": [], "指代词": [], "重复": [], "缺字段": [], "无标签": []}
+    bad = {"超长": [], "缺场景": [], "指代词": [], "重复": [], "疑似重复": [], "缺字段": [], "无标签": []}
     seen = {}
     for c in data["cards"]:
         t = c.get("text", "")
@@ -402,6 +437,20 @@ def cmd_doctor(a):
         if not c.get("tags"):
             bad["无标签"].append(c["id"])
     tk = est_tokens(open(BOOT_FILE, encoding="utf-8").read()) if os.path.exists(BOOT_FILE) else 0
+    # 疑似重复：同层、同场景/项目，且文本二元组相似度 ≥0.5（抓“同一件事写两遍”）
+    cs = data["cards"]
+    for i in range(len(cs)):
+        for j in range(i + 1, len(cs)):
+            x, y = cs[i], cs[j]
+            if x["layer"] != y["layer"]:
+                continue
+            if x.get("scene", "") != y.get("scene", "") or x.get("project", "") != y.get("project", ""):
+                continue
+            bx, by = _bigrams(norm(x["text"])), _bigrams(norm(y["text"]))
+            if not bx or not by:
+                continue
+            if _sim(x["text"], y["text"]) >= 0.35:
+                bad["疑似重复"].append(f"{x['id']}≈{y['id']}")
     print(f"🩺 体检：{len(data['cards'])} 张卡片" + (f" ｜ BOOT {tk} tokens" if tk else " ｜ BOOT 未生成"))
     for k, v in bad.items():
         if v:
