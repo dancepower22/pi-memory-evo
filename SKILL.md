@@ -19,8 +19,9 @@ requires: python3>=3.8
 ## 🚀 会话启动（每次新会话）
 
 1. 若存在 `~/.agents/memory/MEMORY.md`，**先读取**，快速了解用户背景、偏好与近期会话。
-2. 需要细节时用 `memory.py get <id>` 或 `memory.py search <关键词>` 深挖。
-3. 向用户展示已记住的关键信息（简要），体现连续性。
+2. **再读 `~/.agents/memory/OPEN_LOOPS.md`（未收尾事项，唯一待办真相源）**，汇报 🔴/🟢 条目；⏸ 搁置项不主动催。
+3. 需要细节时用 `memory.py get <id>` 或 `memory.py search <关键词>` 深挖。
+4. 向用户展示已记住的关键信息（简要），体现连续性。
 
 ## 📌 主动保存（ALWAYS ACTIVE，遇到即存，不要等会话结束）
 
@@ -45,8 +46,9 @@ requires: python3>=3.8
    - 属于**可复用方法论**（如"某类任务的标准流程"）→ 新建或更新 `~/.agents/skills/` 下的技能（用 write/edit 工具），让下次自动生效；
    - 属于**一次性事实** → 存 fact；
    - 属于**环境/账号专属**（如某工具需配置）→ 存 lesson 即可。
-4. 用 `memory.py session-save "<本次会话一句话摘要>" --key 关键词1,关键词2` 保存会话记录。
-5. 运行 `memory.py sync` 刷新 MEMORY.md 总览。
+4. **回写 `~/.agents/memory/OPEN_LOOPS.md`**：新增线头、改状态、把干完的移进「✅ 已结」（附结论与验证方式）。**这是硬动作，不许省**——会话摘要是回忆录，OPEN_LOOPS.md 才是任务单（2026-09-11 翻车教训）。
+5. 用 `memory.py session-save "<本次会话一句话摘要>" --key 关键词1,关键词2` 保存会话记录。
+6. 运行 `memory.py sync` 刷新 MEMORY.md 总览。
 
 ## 🔍 查询记忆
 
@@ -66,10 +68,30 @@ $P stats                       # 统计
 $P sync                        # 刷新总览 MEMORY.md
 ```
 
+## 🧱 记忆机制 v2（分层卡片，2026-09-11 起）
+
+除旧四层外，另有一套**分层卡片库**（`~/.agents/memory/cards.json`），面向"下次读回来不走样"设计：
+L1 工作法（按触发场景）｜ L2 项目状态 ｜ L3 环境事实 ｜ L5 调优日志（老闫的纠正与边界）。
+
+```bash
+P=~/.agents/skills/pi-memory-evo/memory.py
+$P card add --layer L1 --scene writing --text "要这么做的一句话" [--note 例/边界] [--why 仅在防读偏时写] [--tag a,b] [--src 来源]
+$P card add --layer L2 --project <项目> --status active --text "现状或下一步"
+$P card search <词> / card list --layer L1 / card show <id>
+$P build [--scene writing] [--budget 3500]   # 生成 BOOT.md + playbook/ projects/ 正文镜像
+$P doctor                                    # 体检：超长/缺场景/指代词/重复/无标签/预算
+```
+
+**开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens），正文按需 `card search` 或读 `playbook/<场景>.md`。
+写入判据：**零上下文读回来必须不走样**——写成"要这么做"的指令式，禁指代词，一条一件事（≤200 字）。
+
+> 设计文档：`/mnt/d/Pi/projects/agent-memory/DESIGN.md`（长线项目，P1 已完，P2 迁移存量中）
+
 ## 📂 存储位置
 
 - 数据：`~/.agents/memory/memory.json`（四层记忆，JSON）
-- 总览：`~/.agents/memory/MEMORY.md`（会话启动时读这个）
+- 总览：`~/.agents/memory/MEMORY.md`（会话启动时读这个——**回顾型**）
+- 待办：`~/.agents/memory/OPEN_LOOPS.md`（会话启动时也读——**前瞻型**，唯一待办真相源）
 - 技能本体：`~/.agents/skills/pi-memory-evo/`（工具 + 本说明）
 
 ## ⚠️ 边界

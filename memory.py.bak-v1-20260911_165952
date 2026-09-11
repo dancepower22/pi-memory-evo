@@ -14,13 +14,6 @@
   memory.py delete <id>                            # 删除
   memory.py stats                                  # 统计概览
   memory.py sync                                   # 重新生成 MEMORY.md 总览
-
-记忆机制 v2（分层卡片，见 /mnt/d/Pi/projects/agent-memory/DESIGN.md）：
-  memory.py card add --layer L1 --scene writing --text "..."   # 新增卡片
-  memory.py card list|search|show|edit|rm|use ...              # 卡片读写
-  memory.py build [--scene writing] [--budget 3500]            # 生成 BOOT.md 与正文镜像
-  memory.py doctor                                             # 体检
-  （旧四层 memory.json 保持不变；卡片存于 cards.json）
 """
 import argparse
 import contextlib
@@ -302,11 +295,6 @@ def init(args=None):
 
 
 def main():
-    # —— 记忆 v2 转发：分层卡片工具 cards.py（memory.py 本体逻辑不动）
-    if len(sys.argv) > 1 and sys.argv[1] in ("card", "build", "doctor"):
-        import cards
-        return cards.main(sys.argv[2:] if sys.argv[1] == "card" else sys.argv[1:])
-
     p = argparse.ArgumentParser(description="pi 永久记忆工具")
     sub = p.add_subparsers(dest="cmd")
 

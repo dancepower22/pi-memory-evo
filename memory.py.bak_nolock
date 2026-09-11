@@ -14,27 +14,13 @@
   memory.py delete <id>                            # 删除
   memory.py stats                                  # 统计概览
   memory.py sync                                   # 重新生成 MEMORY.md 总览
-
-记忆机制 v2（分层卡片，见 /mnt/d/Pi/projects/agent-memory/DESIGN.md）：
-  memory.py card add --layer L1 --scene writing --text "..."   # 新增卡片
-  memory.py card list|search|show|edit|rm|use ...              # 卡片读写
-  memory.py build [--scene writing] [--budget 3500]            # 生成 BOOT.md 与正文镜像
-  memory.py doctor                                             # 体检
-  （旧四层 memory.json 保持不变；卡片存于 cards.json）
 """
 import argparse
-import contextlib
 import json
 import os
 import sys
 import time
 from datetime import datetime, timezone
-
-try:
-    import fcntl as _fcntl
-    _HAVE_LOCK = True
-except ImportError:  # 非 POSIX(如 Windows)退化为无锁
-    _HAVE_LOCK = False
 
 MEM_DIR = os.path.expanduser("~/.agents/memory")
 DATA_FILE = os.path.join(MEM_DIR, "memory.json")
@@ -63,31 +49,6 @@ def save(data):
     os.replace(tmp, DATA_FILE)
 
 
-@contextlib.contextmanager
-def _file_lock():
-    """跨进程互斥锁: 锁独立 .lock 文件(不随 memory.json 被 replace 换 inode)"""
-    if not _HAVE_LOCK:
-        yield
-        return
-    os.makedirs(MEM_DIR, exist_ok=True)
-    lf = open(os.path.join(MEM_DIR, ".lock"), "w")
-    try:
-        _fcntl.flock(lf, _fcntl.LOCK_EX)
-        yield
-    finally:
-        _fcntl.flock(lf, _fcntl.LOCK_UN)
-        lf.close()
-
-
-def mutate(op):
-    """读-改-写 整体持锁: 并发 add/update/delete 不再互相覆盖或写坏"""
-    with _file_lock():
-        data = load()
-        out = op(data)
-        save(data)
-    return out
-
-
 def gen_id(prefix, data):
     keys = [x["id"] for t in ALL_TYPES for x in data.get(t + "s", [])]
     nums = [int(k[len(prefix):]) for k in keys if k.startswith(prefix) and k[len(prefix):].isdigit()]
@@ -110,48 +71,39 @@ def find_duplicate(data, kind, content):
 
 
 def add(args):
+    data = load()
     kind = args.type
     if kind not in TYPES:
         print(f"❌ 类型必须是 {'/'.join(TYPES)}")
         sys.exit(1)
-
-    def _op(data):
-        dup = find_duplicate(data, kind, args.content)
-        if dup:
-            return ("dup", dup)
-        key = kind + "s"
-        rec = {
-            "id": gen_id(kind[0], data),
-            "content": args.content,
-            "tags": [t.strip() for t in args.tag.split(",")] if args.tag else [],
-            "ts": now_iso(),
-        }
-        data[key].append(rec)
-        return ("ok", rec)
-
-    res = mutate(_op)
-    if res[0] == "dup":
-        dup = res[1]
+    dup = find_duplicate(data, kind, args.content)
+    if dup:
         print(f"⚠️ 已有相似条目（{dup['id']}）: {dup['content'][:60]}")
         print("未重复添加。如确需更新请用 update 或 delete 后重加。")
-    else:
-        rec = res[1]
-        print(f"✅ 已保存 {kind}: {rec['id']}")
-        print(f"   {args.content[:80]}")
+        return
+    key = kind + "s"
+    rec = {
+        "id": gen_id(kind[0], data),
+        "content": args.content,
+        "tags": [t.strip() for t in args.tag.split(",")] if args.tag else [],
+        "ts": now_iso(),
+    }
+    data[key].append(rec)
+    save(data)
+    print(f"✅ 已保存 {kind}: {rec['id']}")
+    print(f"   {args.content[:80]}")
 
 
 def session_save(args):
-    def _op(data):
-        rec = {
-            "id": gen_id("s", data),
-            "date": now_iso(),
-            "summary": args.content,
-            "keys": [k.strip() for k in args.key.split(",")] if args.key else [],
-        }
-        data["sessions"].append(rec)
-        return rec
-
-    rec = mutate(_op)
+    data = load()
+    rec = {
+        "id": gen_id("s", data),
+        "date": now_iso(),
+        "summary": args.content,
+        "keys": [k.strip() for k in args.key.split(",")] if args.key else [],
+    }
+    data["sessions"].append(rec)
+    save(data)
     print(f"✅ 已保存会话摘要: {rec['id']}")
     print(f"   {args.content[:80]}")
 
@@ -211,37 +163,31 @@ def get_item(args):
 
 
 def update_item(args):
-    def _op(data):
-        for t in ALL_TYPES:
-            for it in data.get(t + "s", []):
-                if it["id"] == args.id:
-                    it["content"] = args.content
-                    if args.tag and t != "session":
-                        it["tags"] = [x.strip() for x in args.tag.split(",")]
-                    it["ts"] = now_iso()
-                    return True
-        return False
-
-    if mutate(_op):
-        print(f"✅ 已更新 {args.id}")
-    else:
-        print(f"❌ 未找到 {args.id}")
+    data = load()
+    for t in ALL_TYPES:
+        for it in data.get(t + "s", []):
+            if it["id"] == args.id:
+                it["content"] = args.content
+                if args.tag and t != "session":
+                    it["tags"] = [x.strip() for x in args.tag.split(",")]
+                it["ts"] = now_iso()
+                save(data)
+                print(f"✅ 已更新 {args.id}")
+                return
+    print(f"❌ 未找到 {args.id}")
 
 
 def delete_item(args):
-    def _op(data):
-        for t in ALL_TYPES:
-            items = data.get(t + "s", [])
-            for i, it in enumerate(items):
-                if it["id"] == args.id:
-                    del items[i]
-                    return True
-        return False
-
-    if mutate(_op):
-        print(f"🗑️ 已删除 {args.id}")
-    else:
-        print(f"❌ 未找到 {args.id}")
+    data = load()
+    for t in ALL_TYPES:
+        items = data.get(t + "s", [])
+        for i, it in enumerate(items):
+            if it["id"] == args.id:
+                del items[i]
+                save(data)
+                print(f"🗑️ 已删除 {args.id}")
+                return
+    print(f"❌ 未找到 {args.id}")
 
 
 def stats(args):
@@ -302,11 +248,6 @@ def init(args=None):
 
 
 def main():
-    # —— 记忆 v2 转发：分层卡片工具 cards.py（memory.py 本体逻辑不动）
-    if len(sys.argv) > 1 and sys.argv[1] in ("card", "build", "doctor"):
-        import cards
-        return cards.main(sys.argv[2:] if sys.argv[1] == "card" else sys.argv[1:])
-
     p = argparse.ArgumentParser(description="pi 永久记忆工具")
     sub = p.add_subparsers(dest="cmd")
 
