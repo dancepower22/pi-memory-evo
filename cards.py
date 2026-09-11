@@ -138,14 +138,22 @@ def cmd_edit(a):
     if not c:
         print(f"❌ 未找到 {a.id}")
         return 1
+    # 只覆盖**显式传了值**的字段：空默认值（""）一律视为“没传”，绝不能抹掉原字段
     for k in ("text", "note", "why", "scene", "project", "status", "src"):
         v = getattr(a, k, None)
-        if v is not None:
+        if v:
             c[k] = v.strip()
     if a.tag:
         c["tags"] = [t.strip() for t in a.tag.split(",") if t.strip()]
+    if a.layer:
+        c["layer"] = a.layer
     c["updated"] = now_iso()
     save(data)
+    # 改完做一次基本校验
+    if c["layer"] in ("L1", "L5") and not c.get("scene"):
+        print(f"⚠️ {a.id} 是 {c['layer']} 但缺 scene（触发场景）——请补 --scene")
+    if c["layer"] == "L2" and not c.get("project"):
+        print(f"⚠️ {a.id} 是 L2 但缺 project")
     print(f"✅ 已更新 {a.id}")
     return 0
 
