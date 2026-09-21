@@ -16,7 +16,17 @@ Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
 ## 🇨🇳 简介
 
-`pi-memory-facts` 是一个 **pi 原生**的永久记忆与自进化技能，把"越用越懂你"变成现实：
+`pi-memory-facts` 是一个 **pi 原生**的永久记忆与自进化技能，把"越用越懂你"变成现实。
+
+**名字即宣言，FACTS 五个字母是这套记忆系统的五根柱子：**
+
+- **F = Frugal（速进场）**：开场只装 BOOT.md 预算包（≤3500 tokens），是目录不是正文；只读 to-do，done 的不读，冷藏层永不进场——最大限度省 token
+- **A = Accurate（存取一致）**：首次精准化写入（判据＝零上下文读回来不走样）＋后期纠偏，避免模糊混淆
+- **C = Card（卡式）**：按触发场景/项目/skills 建卡索引，检索＝匹配当前动作，不搞一锅粥
+- **T = Trusted（可信度分级）**：每条记忆带验证等级（★human / ✓tested / ~review / ?self），猜测不伪装成事实
+- **S = Self-evolving（任务卡自进化）**：端到端 SOP＋坑表，做完必回写，同类错误不重犯
+
+除此之外：
 
 - **🧠 永久记忆**：跨会话记住用户偏好、项目决策、重要事实（`fact`）、行为规律（`pattern`）、排坑经验（`lesson`）
 - **⚡ 主动保存（ALWAYS ACTIVE）**：会话中遇到值得记住的信息立即保存，不等用户要求
@@ -40,11 +50,13 @@ Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
 ### 安装方式 1：一行命令（推荐，给 pi-Agent 自动安装）
 
-复制下面这条命令给你的 pi-Agent，它会自动把技能装进 `~/.agents/skills/`，重启 pi 即生效：
+复制下面这条命令给你的 pi-Agent，它会自动把技能装进 pi 的全局技能目录 `~/.pi/agent/skills/`，重启 pi 即生效：
 
 ```bash
 npx skills add dancepower22/pi-memory-facts -g -a pi
 ```
+
+> 注意：`npx skills` 装的是**静态副本**（无 .git）。如果技能仓库更新了，需要重新执行该命令获取新版。
 
 ### 安装方式 2：git clone（手动，同样生效）
 
