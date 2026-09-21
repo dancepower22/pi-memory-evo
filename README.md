@@ -8,6 +8,8 @@
 零依赖 · 主动保存 · 三层粒度 · 经验路由
 Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
+> **名字即宣言 FACTS：** F=Frugal 速进场（省 token）｜ A=Accurate 存取一致（零上下文读回不走样）｜ C=Card 卡式（按场景建卡索引）｜ T=Trusted 可信度分级（★✓~?）｜ S=Self-evolving 任务卡自进化（坑表回写）
+
 </div>
 
 ---
@@ -36,15 +38,31 @@ Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
 ## 🚀 快速开始 / Quick Start
 
-```bash
-# 1. 安装技能到 pi 的技能目录
-mkdir -p ~/.agents/skills/pi-memory-facts
-# 将本仓库的 memory.py 与 SKILL.md 放入该目录
+### 安装方式 1：一行命令（推荐，给 pi-Agent 自动安装）
 
-# 2. 初始化记忆库（首次）
+复制下面这条命令给你的 pi-Agent，它会自动把技能装进 `~/.agents/skills/`，重启 pi 即生效：
+
+```bash
+npx skills add dancepower22/pi-memory-facts -g -a pi
+```
+
+### 安装方式 2：git clone（手动，同样生效）
+
+```bash
+git clone --depth=1 https://github.com/dancepower22/pi-memory-facts.git ~/.agents/skills/pi-memory-facts
+```
+
+### 安装方式 3：手动放置
+
+把本仓库的 `SKILL.md`、`memory.py`、`cards.py` 放入 `~/.agents/skills/pi-memory-facts/` 即可（pi 会自动发现带非空 description 的 SKILL.md）。
+
+### 安装后（任选一种安装方式都接着做）
+
+```bash
+# 1. 初始化记忆库（首次）
 ~/.agents/skills/pi-memory-facts/memory.py init
 
-# 3. 使用
+# 2. 使用
 ~/.agents/skills/pi-memory-facts/memory.py add fact "用户偏好中文回复" --tag 偏好
 ~/.agents/skills/pi-memory-facts/memory.py search 偏好
 ```
