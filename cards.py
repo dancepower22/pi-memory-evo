@@ -877,7 +877,7 @@ def _path_check(txt):
         if re.search(r"[原旧曾早]|以前|过去|原先", pre):
             continue                                   # 历史引用（“原 ~/x”）不是活指针
         if REMOTE_CTX.search(txt[max(0, m.start() - 24):m.start()]):
-            continue                                   # “服务器 /home/admin/…”
+            continue                                   # “服务器 /home/deploy/…”
         p2 = os.path.expanduser(m.group(0).rstrip(".,;，。）)"))
         if not any(p2.startswith(x) for x in _CHECK_PREFIXES):
             continue                                   # 服务器 / 运行时路径，不核
@@ -896,7 +896,7 @@ def _doctor_selftest():
         ("/mnt/d/Pi/不存在的目录-xyz", True, "失效的 /mnt 路径 → 必须报"),
         ("技能在 ~/.agents/skills/（原 ~/.agents/skills-old）", False, "反例：「原 …」历史引用 → 不许报"),
         ("技能在 ~/.agents/skills/", False, "反例：路径存在 → 不许报"),
-        ("服务器 /home/admin/app/build.py 渲染", False, "反例：服务器（远程）路径 → 不许报"),
+        ("服务器 /home/deploy/app/build.py 渲染", False, "反例：服务器（远程）路径 → 不许报"),
         ("部署 /opt/site/www/{teacher}/", False, "反例：服务器上的 /opt 路径 → 不许报"),
         ("启动 my-app web > /tmp/app.log 2>&1", False, "反例：/tmp 运行时产物 → 不许报"),
         ("key 存 my-proj/data/config.json", False, "反例：相对路径 → 不许报"),
