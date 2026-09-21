@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 pi-memory-evo
+# 🧠 pi-memory-facts
 
 **永久记忆 + 自进化技能 · 为 pi 编码助手打造**
 **Persistent Memory & Self-Evolving Skill for the pi coding agent**
@@ -14,7 +14,7 @@ Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
 ## 🇨🇳 简介
 
-`pi-memory-evo` 是一个 **pi 原生**的永久记忆与自进化技能，把"越用越懂你"变成现实：
+`pi-memory-facts` 是一个 **pi 原生**的永久记忆与自进化技能，把"越用越懂你"变成现实：
 
 - **🧠 永久记忆**：跨会话记住用户偏好、项目决策、重要事实（`fact`）、行为规律（`pattern`）、排坑经验（`lesson`）
 - **⚡ 主动保存（ALWAYS ACTIVE）**：会话中遇到值得记住的信息立即保存，不等用户要求
@@ -24,7 +24,7 @@ Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
 ## 🇬🇧 Overview (EN)
 
-`pi-memory-evo` is a **pi-native** persistent memory & self-evolving skill:
+`pi-memory-facts` is a **pi-native** persistent memory & self-evolving skill:
 
 - **🧠 Persistent memory** across sessions: user preferences, project decisions, facts, recurring patterns, and hard-won lessons
 - **⚡ Always-active capture**: saves important information immediately during conversation — no need to ask
@@ -38,15 +38,15 @@ Zero-dependency · Always-Active · 3-layer memory · Lesson routing
 
 ```bash
 # 1. 安装技能到 pi 的技能目录
-mkdir -p ~/.agents/skills/pi-memory-evo
+mkdir -p ~/.agents/skills/pi-memory-facts
 # 将本仓库的 memory.py 与 SKILL.md 放入该目录
 
 # 2. 初始化记忆库（首次）
-~/.agents/skills/pi-memory-evo/memory.py init
+~/.agents/skills/pi-memory-facts/memory.py init
 
 # 3. 使用
-~/.agents/skills/pi-memory-evo/memory.py add fact "用户偏好中文回复" --tag 偏好
-~/.agents/skills/pi-memory-evo/memory.py search 偏好
+~/.agents/skills/pi-memory-facts/memory.py add fact "用户偏好中文回复" --tag 偏好
+~/.agents/skills/pi-memory-facts/memory.py search 偏好
 ```
 
 ## 📐 架构 / Architecture
@@ -72,7 +72,7 @@ mkdir -p ~/.agents/skills/pi-memory-evo
 ## 🛠️ 命令参考 / Commands
 
 ```bash
-P=~/.agents/skills/pi-memory-evo/memory.py
+P=~/.agents/skills/pi-memory-facts/memory.py
 
 $P init                        # 初始化记忆库 / init store
 $P add fact   "内容" --tag a,b  # 事实 / facts
@@ -92,7 +92,7 @@ $P sync                         # 刷新总览 MEMORY.md / refresh overview
 
 | 内容 | 路径 |
 |------|------|
-| 技能本体 / Skill | `~/.agents/skills/pi-memory-evo/` |
+| 技能本体 / Skill | `~/.agents/skills/pi-memory-facts/` |
 | 记忆数据 / Memory data | `~/.agents/memory/memory.json` |
 | 记忆总览 / Overview | `~/.agents/memory/MEMORY.md` |
 

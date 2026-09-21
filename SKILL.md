@@ -1,12 +1,16 @@
 ---
-name: pi-memory-evo
-version: 0.1.0
+name: pi-memory-facts
+version: 0.2.0
 description: >-
-  ALWAYS ACTIVE 永久记忆与自进化技能（pi 原生，零依赖）：
-  会话中主动保存用户偏好/项目决策/重要事实（fact）、反复出现的行为规律（pattern）、排坑经验（lesson），
-  会话结束时自动沉淀摘要（session）并"经验路由"——可操作的方法论升级为技能或写入记忆库。
-  新会话启动时先读 ~/.agents/memory/MEMORY.md 了解用户背景，实现跨会话连续记忆。
-  工具：~/.agents/skills/pi-memory-evo/memory.py（add / search / session-save / stats / sync）。
+  ALWAYS ACTIVE 永久记忆与自进化技能（pi 原生，零依赖），名字即宣言：FACTS。
+  F=Frugal 速进场：开场只装 BOOT.md 预算包（≤3500 tokens），是目录不是正文；
+  只读 OPEN_LOOPS（to-do），done 的不读，冷藏层（L6）永不进场——最大限度省 token。
+  A=Accurate 存取一致：首次精准化写入（判据=零上下文读回来不走样）+ 后期纠偏，避免模糊混淆。
+  C=Card 卡式：按触发场景/项目/skills 建卡索引（L1-L5），检索=匹配当前动作，不搞一锅粥。
+  T=Trusted 可信度分级：每条记忆带验证等级（★human / ✓tested / ~review / ?self），
+  猜测不伪装成事实，"我知道我不知道"。
+  S=Self-evolving 任务卡自进化：端到端 SOP+坑表，做完必回写，同类错误不重犯。
+  工具：~/.agents/skills/pi-memory-facts/memory.py（add / search / session-save / stats / sync / card / proj / icebox / doctor）。
   触发词：记住、记一下、别忘了、永久记忆、长期记忆、我的偏好、上次我们、我们之前、回顾、总结会话、沉淀、自进化、经验教训、记忆、memory、remember、save this、教训、排坑。
 requires: python3>=3.8
 ---
@@ -57,7 +61,7 @@ requires: python3>=3.8
 ## ⚙️ 工具速查
 
 ```bash
-P=~/.agents/skills/pi-memory-evo/memory.py
+P=~/.agents/skills/pi-memory-facts/memory.py
 $P init                       # 首次初始化
 $P add fact "内容" --tag 偏好    # 存事实/模式/经验
 $P session-save "摘要" --key a  # 存会话摘要
@@ -76,7 +80,7 @@ L1 工作法（按触发场景）｜ L2 项目状态（开场只列名字，详�
 **检索铁律**：先查项目总表 → 再查 L1–L5 → 都找不到才翻 L6（`memory.py icebox`）。
 
 ```bash
-P=~/.agents/skills/pi-memory-evo/memory.py
+P=~/.agents/skills/pi-memory-facts/memory.py
 $P card add --layer L1 --scene writing --text "要这么做的一句话" [--note 例/边界] [--why 仅在防读偏时写] [--tag a,b] [--src 来源] [--verify tested] [--evidence "命令/输出/谁说的"]
 $P card add --layer L2 --project <项目> --status active --text "现状或下一步"
 $P card verify <id> self|review|tested|human [--evidence "证据"]   # 标验证等级（升级/降级都行）
@@ -116,7 +120,7 @@ $P icebox                                    # 列出冷藏层（老闫说“先
 - 数据：`~/.agents/memory/memory.json`（四层记忆，JSON）
 - 总览：`~/.agents/memory/MEMORY.md`（会话启动时读这个——**回顾型**）
 - 待办：`~/.agents/memory/OPEN_LOOPS.md`（会话启动时也读——**前瞻型**，唯一待办真相源）
-- 技能本体：`~/.agents/skills/pi-memory-evo/`（工具 + 本说明）
+- 技能本体：`~/.agents/skills/pi-memory-facts/`（工具 + 本说明）
 
 ## ⚠️ 边界
 
