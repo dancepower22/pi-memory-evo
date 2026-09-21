@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """记忆机制 v2 · 分层卡片工具（cards.py）
 
-设计见 /mnt/d/Pi/projects/agent-memory/DESIGN.md
+设计见 本仓库 DESIGN.md
 零依赖（Python 标准库）。数据：~/.agents/memory/cards.json
 存量 memory.json **永不读写**（那是 L4 归档，P2 阶段才迁移）。
 
@@ -9,14 +9,14 @@
   L1 工作法   按触发场景分（writing/design/coding/ops/asset/collab/...）
   L2 项目状态 按项目分
   L3 环境事实 路径/端口/命令/坑
-  L5 调优日志 老闫每次纠正我的原因与边界
+  L5 调优日志 用户每次纠正我的原因与边界
 
-核心原则（老闫 2026-09-11 定）：
+核心原则（用户 2026-09-11 定）：
   ① 条目写成"要这么做"的指令式；判据是**下次零上下文读回来不走样**
   ② 主维度 = 触发场景（when），主题只作副标签
   ③ 注入按**预算**取，不按条数取
 
-机制规范（老闫 2026-09-14 定，目的是防增肥）：
+机制规范（用户 2026-09-14 定，目的是防增肥）：
   ④ 卡片 = 指针 + 要点：能指向脚本/文件/任务卡的，就别把正文抄进来（同一知识只存一处）
   ⑤ 三者分工：技能 `skills/*/SKILL.md` = 可分发的能力与工具用法；卡片 = 个人经验/环境事实/教训；
      任务卡 `tasks/*.md` = 端到端流程。三者互为指针，正文只存一处
@@ -51,21 +51,21 @@ CARDS_FILE = os.path.join(MEM_DIR, "cards.json")
 BOOT_FILE = os.path.join(MEM_DIR, "BOOT.md")
 
 LAYERS = ("L1", "L2", "L3", "L5", "L6")
-# L6 = 冷藏层（icebox）：老闫当时说“先放放”的、姜花一现的临时起意。
-# 检索铁律（老闫 2026-09-11）：**先查项目总表 → L1-L5 → 都找不到才翻 L6**；L6 永不进开场。
+# L6 = 冷藏层（icebox）：用户当时说“先放放”的、姜花一现的临时起意。
+# 检索铁律（用户 2026-09-11）：**先查项目总表 → L1-L5 → 都找不到才翻 L6**；L6 永不进开场。
 SCENES = ("writing", "design", "coding", "ops", "asset", "collab", "meta", "other")
 STATUSES = ("active", "paused", "done", "ice")
 STATUS_CN = {"active": "🟢 进行中", "paused": "⏸ 搁置", "done": "✅ 已完成", "ice": "🧊 冷藏"}
 DEFAULT_BUDGET = 3500
-# 项目总表：老闫要求落到 D 盘（他常开着 /mnt/d/Pi），便于他和阿衍两头都能查
-PROJECT_TABLE = "/mnt/d/Pi/项目总表.md"
-PROJECT_TABLE_HTML = "/mnt/d/Pi/项目总表.html"
+# 项目总表落盘位置：默认本机 D 盘（可用环境变量 PI_PROJECT_TABLE / PI_PROJECT_TABLE_HTML 覆盖）
+PROJECT_TABLE = os.environ.get("PI_PROJECT_TABLE", "/mnt/d/Pi/项目总表.md")
+PROJECT_TABLE_HTML = os.environ.get("PI_PROJECT_TABLE_HTML", "/mnt/d/Pi/项目总表.html")
 
 # 场景 → 中文名（生成正文文件与 BOOT 标题用）
 SCENE_CN = {
     "writing": "写文章/标题/摘要", "design": "设计/视觉/排版",
     "coding": "写代码/建系统", "ops": "服务器/部署/排障",
-    "asset": "能力与工具(生图/搜索/发文)", "collab": "与老闫协作的方式",
+    "asset": "能力与工具(生图/搜索/发文)", "collab": "与用户协作的方式",
     "meta": "记忆与方法论自身", "other": "其他",
 }
 
@@ -73,15 +73,15 @@ SCENE_CN = {
 #   self   我自己推断/写的，没人验过（默认；**读时缺字段也按这级算** → 未确认数量天然可观测）
 #   review 独立来源 / 另一上下文交叉核对过（另一 Agent、另一篇资料、另一个人）
 #   tested 我实跑过，有可复现的命令或结果
-#   human  老闫当场确认或纠正过（最高）
+#   human  用户当场确认或纠正过（最高）
 VERIFY_LEVELS = ("self", "review", "tested", "human")
 VERIFY_MARK = {"self": "?", "review": "~", "tested": "✓", "human": "★"}
-VERIFY_CN = {"self": "自评(未验证)", "review": "外部核对", "tested": "实测通过", "human": "老闫确认"}
+VERIFY_CN = {"self": "自评(未验证)", "review": "外部核对", "tested": "实测通过", "human": "用户确认"}
 
 # 指代词黑名单（doctor 告警用，启发式）
 PRONOUNS = ("这个", "那个", "上次", "上述", "之前提到", "该方案", "它")
 
-# 时效：环境事实会腐烂。L3 超过这么多天未确认 → doctor 提醒复核（老闫 2026-09-14 定）
+# 时效：环境事实会腐烂。L3 超过这么多天未确认 → doctor 提醒复核（用户 2026-09-14 定）
 STALE_DAYS = {"L3": 90}
 
 
@@ -372,7 +372,7 @@ def cmd_search(a):
                          + c.get("scene", "") + c.get("project", ""))]
     if a.layer:
         hits = [c for c in hits if c["layer"] == a.layer]
-    # 排序：L6 永远最后（老闫 2026-09-11）；同层内已确认的排前、自评的沉底（2026-09-12）
+    # 排序：L6 永远最后（用户 2026-09-11）；同层内已确认的排前、自评的沉底（2026-09-12）
     _vrank = {"human": 0, "tested": 1, "review": 2, "self": 3}
     hits.sort(key=lambda c: (1 if c["layer"] == "L6" else 0, _vrank[vlevel(c)]))
     if not hits:
@@ -578,7 +578,7 @@ def cmd_build(a):
     except Exception:
         pass
 
-    # —— L2：开场**只列项目名**（老闫 09-11：不需要每次记住每个项目的现状/决策/卡点/下一步）
+    # —— L2：开场**只列项目名**（用户 09-11：不需要每次记住每个项目的现状/决策/卡点/下一步）
     projs = data.get("projects", {})
     byp = {}
     for c in cards:
@@ -637,7 +637,7 @@ def cmd_build(a):
         f"> 自动生成于 {now_iso()}" + (f" ｜ 场景：**{a.scene}**" if a.scene else ""),
         f"> 预算 {b} tokens ｜ 本文件估算 **{_PH}** tokens ｜ ✅ 在预算内",
         "> 读法：本文件是**目录**。要正文 → `memory.py card search <词>`，或直接读 `playbook/<场景>.md` / `projects/<项目>.md`。",
-        "> 验证等级：★ 老闫确认 ｜ ✓ 实测通过 ｜ ~ 外部核对 ｜ ? 未验证（自评，别当硬事实用，用前先核）。",
+        "> 验证等级：★ 用户确认 ｜ ✓ 实测通过 ｜ ~ 外部核对 ｜ ? 未验证（自评，别当硬事实用，用前先核）。",
         "", "",
     ]
     text = "\n".join(head) + body
@@ -657,13 +657,13 @@ def cmd_build(a):
 
 def _write_project_table(data, cards, projs, byp):
     """生成 D 盘项目总表：项目名 / 别名 / 一句话 / 路径 / 状态 + 各自的 L2 卡片要点
-    用途（老闫 09-11）：他和我两头都能查；项目名对不上时也能搜到。"""
+    用途（用户 09-11）：他和我两头都能查；项目名对不上时也能搜到。"""
     names = sorted(set(byp.keys()) | set(projs.keys()))
     if not names:
         return
     L = ["# 项目总表", "",
          f"> 生成于 {now_iso()} ｜ 数据源 `~/.agents/memory/cards.json`——**勿手改**，改卡片后 `memory.py build` 重生成。",
-         "> 用法：Ctrl+F 搜项目名 / 别名 / 关键词。老闫问『某项目怎么样了』→ 阿衍先 `memory.py proj find <关键词>` 再读本节。",
+         "> 用法：Ctrl+F 搜项目名 / 别名 / 关键词。用户问『某项目怎么样了』→ 维护者先 `memory.py proj find <关键词>` 再读本节。",
          ""]
     def status_of(n):
         return (projs.get(n) or {}).get("status") or (byp.get(n, [{}])[0].get("status") or "active")
@@ -766,7 +766,7 @@ q.addEventListener('input',()=>{
 
 
 def _write_project_table_html(projs, byp, cards):
-    """生成 HTML 版项目总表（老闫 2026-09-11：md 看着眼累）——纸墨朱砂配色 + 实时搜索"""
+    """生成 HTML 版项目总表（用户 2026-09-11：md 看着眼累）——纸墨朱砂配色 + 实时搜索"""
     names = sorted(set(byp.keys()) | set(projs.keys()))
     if not names:
         return
@@ -838,10 +838,10 @@ def _write_project_table_html(projs, byp, cards):
     n_ice = len([n for n in names if st(n) == "ice"])
     doc = ("<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-           "<title>项目总表 · 阿衍</title>\n<style>" + _CSS + "</style>\n</head>\n<body>\n<div class=\"wrap\">\n"
+           "<title>项目总表 · 维护者</title>\n<style>" + _CSS + "</style>\n</head>\n<body>\n<div class=\"wrap\">\n"
            "<header><h1>项目总表</h1><div class=\"meta\">共 <b>" + str(len(names)) + "</b> 个项目　·　进行中 <b>"
            + str(n_active) + "</b>　·　冷藏 <b>" + str(n_ice) + "</b>　·　生成于 " + now_iso()
-           + "　·　阿衍维护<code>memory.py build</code>自动生成，勿手改</div></header>\n"
+           + "　·　维护者维护<code>memory.py build</code>自动生成，勿手改</div></header>\n"
            "<div class=\"toolbar\"><input id=\"q\" type=\"search\" placeholder=\"搜项目名 / 别名 / 路径 / 要点…（如：协作、教师节、蓝图）\" autofocus>"
            "<span class=\"hint\">不用 Ctrl+F，直接打字过滤</span></div>\n"
            + "\n".join(P)
@@ -860,11 +860,11 @@ def _bigrams(s):
 # 路径检测：只核“这台机器上该存在”的路径
 #   ✅ 核：~/x、/mnt/…、/media/…、/home/<本机用户>/…
 #   ⏭ 不核：/opt /etc /var /usr /srv /root /tmp（服务器或运行时产物）以及 /home/<其他用户>/
-# 教训（2026-09-12）：“≈ 报了空”不等于没问题：第一版会把 “原 ~/persona-lab”（历史引用）
-# 和 “/opt/ailily-signal/www”（ailily 服务器上的路径）都当成失效，七个警报里零个是真的。
+# 教训（2026-09-12）：“≈ 报了空”不等于没问题：第一版会把 “原 ~/my-proj”（历史引用）
+# 和 “/opt/site/www”（服务器上的路径）都当成失效，七个警报里零个是真的。
 LOCAL_PATH_RE = re.compile(
     r"(?<![\w\-.])(~/[\w./\-]+|/(?:mnt|media|home|opt|etc|var|usr|srv|root|tmp)/[\w./\-]+)")
-REMOTE_CTX = re.compile(r"服务器|远程|线上|ailily|hermes2|云主机|云服务器")
+REMOTE_CTX = re.compile(r"服务器|远程|线上|云主机|云服务器")
 _HOME = os.path.expanduser("~")
 _CHECK_PREFIXES = ("/mnt/", "/media/", _HOME + "/")
 
@@ -894,12 +894,12 @@ def _doctor_selftest():
     cases = [
         (f"启动 cd {real} && ./run.sh", True, "真失效路径 → 必须报"),
         ("/mnt/d/Pi/不存在的目录-xyz", True, "失效的 /mnt 路径 → 必须报"),
-        ("persona-lab 在 /mnt/d/Pi/projects/persona-lab（原 ~/persona-lab）", False, "反例：「原 …」历史引用 → 不许报"),
+        ("技能在 ~/.agents/skills/（原 ~/.agents/skills-old）", False, "反例：「原 …」历史引用 → 不许报"),
         ("技能在 ~/.agents/skills/", False, "反例：路径存在 → 不许报"),
-        ("服务器 /home/admin/ai_deep_site/build_site.py 渲染", False, "反例：服务器（远程）路径 → 不许报"),
-        ("部署 /opt/ailily-signal/www/{teacher}/", False, "反例：服务器上的 /opt 路径 → 不许报"),
-        ("启动 dsh web > /tmp/dsh.log 2>&1", False, "反例：/tmp 运行时产物 → 不许报"),
-        ("key 存 persona-lab/data/config.json", False, "反例：相对路径 → 不许报"),
+        ("服务器 /home/admin/app/build.py 渲染", False, "反例：服务器（远程）路径 → 不许报"),
+        ("部署 /opt/site/www/{teacher}/", False, "反例：服务器上的 /opt 路径 → 不许报"),
+        ("启动 my-app web > /tmp/app.log 2>&1", False, "反例：/tmp 运行时产物 → 不许报"),
+        ("key 存 my-proj/data/config.json", False, "反例：相对路径 → 不许报"),
         ("版本 M1/M2 已完，序号 ①/② 规则", False, "反例：不是路径的斜杠 → 不许报"),
     ]
     ok = True
@@ -921,7 +921,7 @@ def cmd_doctor(a):
     seen = {}
     for c in data["cards"]:
         t = c.get("text", "")
-        if len(t) > 400:   # 2026-09-14 老闫质疑后放宽：长不是病，「冗余」才是——400 字符内属正常信息单元
+        if len(t) > 400:   # 2026-09-14 用户质疑后放宽：长不是病，「冗余」才是——400 字符内属正常信息单元
             bad["超长"].append((c["id"], len(t)))
         if c["layer"] in ("L1", "L5") and not c.get("scene"):
             bad["缺场景"].append(c["id"])

@@ -15,7 +15,7 @@
   memory.py stats                                  # 统计概览
   memory.py sync                                   # 重新生成 MEMORY.md 总览
 
-记忆机制 v2（分层卡片，见 /mnt/d/Pi/projects/agent-memory/DESIGN.md）：
+记忆机制 v2（分层卡片，见仓库 DESIGN.md）：
   memory.py card add --layer L1 --scene writing --text "..."   # 新增卡片
   memory.py card list|search|show|edit|rm|use ...              # 卡片读写
   memory.py build [--scene writing] [--budget 3500]            # 生成 BOOT.md 与正文镜像
