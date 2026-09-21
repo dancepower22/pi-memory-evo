@@ -77,8 +77,9 @@ L1 工作法（按触发场景）｜ L2 项目状态（开场只列名字，详�
 
 ```bash
 P=~/.agents/skills/pi-memory-evo/memory.py
-$P card add --layer L1 --scene writing --text "要这么做的一句话" [--note 例/边界] [--why 仅在防读偏时写] [--tag a,b] [--src 来源]
+$P card add --layer L1 --scene writing --text "要这么做的一句话" [--note 例/边界] [--why 仅在防读偏时写] [--tag a,b] [--src 来源] [--verify tested] [--evidence "命令/输出/谁说的"]
 $P card add --layer L2 --project <项目> --status active --text "现状或下一步"
+$P card verify <id> self|review|tested|human [--evidence "证据"]   # 标验证等级（升级/降级都行）
 $P card search <词> / card list --layer L1 / card show <id>
 $P proj set <名> --title 中文名 --oneliner "一句话" --alias "别名1,别名2" --path <路径>
 $P proj find <关键词>      # 项目名记不全时搜别名
@@ -89,6 +90,24 @@ $P icebox                                    # 列出冷藏层（老闫说“先
 
 **开场读 `~/.agents/memory/BOOT.md`**（自动生成的目录，≤3.5k tokens）：**项目只列名字**，详情在 `/mnt/d/Pi/项目总表.html`（带实时搜索，老闫看这个）与 `项目总表.md`；工作法正文按需 `card search` 或读 `playbook/<场景>.md`。
 写入判据：**零上下文读回来必须不走样**——写成"要这么做"的指令式，禁指代词，一条一件事（≤200 字）。
+
+### 🔍 验证等级（借 AutoFyn 的 assurance class，2026-09-12）
+
+每条卡还有一个 `verify` 字段，回答"我有多确定"，与内容分开存：
+
+| 标记 | 等级 | 含义 | 谁给的 |
+|:---:|---|---|---|
+| ★ | `human` | 老闫当场确认或纠正过 | 最高 |
+| ✓ | `tested` | 我实跑过，有可复现的命令/结果 | |
+| ~ | `review` | 独立来源 / 另一上下文交叉核对过 | |
+| ? | `self` | **默认**——我自己推断/写的，没人验过 | 用前先核 |
+
+- **读时兑底**：没标过 `verify` 的卡一律按 `?`（自评）算，所以"未确认卡数量"不用额外记账，天然可观测。
+- **排序影响**：`card search` 会把已确认的排前面、自评的沉底；**BOOT.md 每条前面带标记**。
+- **提醒**：`card verify <id> ...` 升级后，**行为要跟着变**（★ 可直接引用；? 要先验证再当真话说）。
+- 体检：`$P doctor` 会报验证等级分布、**L2/L3 里还待确认的清单**、以及**疑似路径失效的卡**（引用的本机文件已不存在 → 该退役）。
+- **改过 doctor 后先跑 `$P doctor --selftest`**：9 个用例（2 正例 + 7 反例）证明检测器真能报出东西。
+  教训（09-12）："报告里是空的"≠"真的没问题"——第一版路径检测不报假就是瞎（压根不匹配 `/home/` 路径）。
 
 > 设计文档：`/mnt/d/Pi/projects/agent-memory/DESIGN.md`（长线项目，P1 已完，P2 迁移存量中）
 
